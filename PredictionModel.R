@@ -68,7 +68,7 @@ colon_rf <- colon_rf %>%
 
 
 
-########## 3. Descriptive Statistics ##########
+#--- Descriptive Statistics ---
 
 # Baseline characteristics by treatment group
 baseline_table <- colon_rf %>%
@@ -86,12 +86,8 @@ baseline_table <- colon_rf %>%
     .groups = "drop"
   )
 
-# Print baseline table to console
-kable(
-  baseline_table,
-  digits = 1,
-  caption = "Baseline characteristics by treatment group"
-)
+print(baseline_table)
+
 
 
 ########## 4. Kaplan–Meier Curves by Treatment ##########
