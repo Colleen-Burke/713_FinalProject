@@ -1,45 +1,40 @@
-# Install packages 
+# Install / load packages -------------------------------------------------
 
 library(survival)   # survival objects, Cox model
-library(survminer)  
-library(dplyr)      
-library(ggplot2)    
-library(Hmisc)      
-library(tidyr)      
-library(knitr)      
-library(broom)      
-library(here)
-
-
-#--- Load and Prepare Data ---
-colon <- read.csv(here("colon.csv"))
+library(survminer)  # KM and Cox plots
+library(dplyr)      # data wrangling
+library(ggplot2)    # plotting
+library(Hmisc)      # C-index (rcorr.cens)
+library(tidyr)      # drop_na
+library(knitr)      # kable
+library(broom)      # tidy outputs
+library(here)       # file paths
 
 set.seed(713)       # reproducibility
 
+
+#--- Load and Prepare Data -----------------------------------------------
+
+colon <- read.csv(here("colon.csv"))
+
 # Replace nodes = 0 with 1
-colon %>%
+colon <- colon %>%
   mutate(
     nodes = ifelse(nodes == 0, 1, nodes)
   )
 
-# Remove missing data
-colon %>%
-  drop_na()
 
 # Define survival object for recurrence-free survival
-# status: 1 = recurrence, 0 = censored
 surv_obj <- Surv(time = colon$time, event = colon$status)
 
 
-
-#--- Variable Coding ---
+#--- Variable Coding ------------------------------------------------------
 
 # Recode treatment (rx) and sex to factors
-colon %>%
+colon <- colon %>%
   mutate(
     rx = factor(rx,
-                levels = c(1, 2, 3),
-                labels = c("Obs", "Lev", "Lev+5FU")),
+                levels = c("Obs", "Lev", "Lev+5FU")),
     sex = factor(sex,
                  levels = c(0, 1),
                  labels = c("Female", "Male")),
@@ -56,10 +51,9 @@ colon %>%
 
 
 
+#--- Descriptive Statistics ----------------------------------------------
 
-#--- Descriptive Statistics ---
-
-# Baseline characteristics by treatment group
+# Baseline characteristics by treatment group (on full colon, not colon_model)
 baseline_table <- colon %>%
   group_by(rx) %>%
   summarise(
@@ -68,28 +62,28 @@ baseline_table <- colon %>%
     age_sd   = sd(age, na.rm = TRUE),
     nodes_median = median(nodes, na.rm = TRUE),
     nodes_IQR    = IQR(nodes, na.rm = TRUE),
-    male_pct     = mean(sex == "Male") * 100,
-    obstruct_pct = mean(obstruct == "Obstruction") * 100,
-    perfor_pct   = mean(perfor == "Perforation") * 100,
-    nonadherent_pct = mean(adhere == "Not adherent") * 100,
+    male_pct     = mean(sex == "Male", na.rm = TRUE) * 100,
+    obstruct_pct = mean(obstruct == "Obstruction", na.rm = TRUE) * 100,
+    perfor_pct   = mean(perfor == "Perforation", na.rm = TRUE) * 100,
+    nonadherent_pct = mean(adhere == "Not adherent", na.rm = TRUE) * 100,
     .groups = "drop"
   )
 
 print(baseline_table)
 
 
-
-#--- Kaplan–Meier Curves by Treatment ---
+#--- Kaplan–Meier Curves by Treatment ------------------------------------
 
 fit_km_rx <- survfit(Surv(time, status) ~ rx, data = colon)
 
 km_plot_rx <- ggsurvplot(
   fit_km_rx,
-  data       = colon_rf,
+  data       = colon,
   risk.table = TRUE,
   conf.int   = TRUE,
+  pval       = FALSE,  # turned off to avoid "only 1 group" survdiff errors
   legend.title = "Treatment",
-  legend.labs  = levels(colon_rf$rx),
+  legend.labs  = levels(colon$rx),
   xlab       = "Time since surgery (days)",
   ylab       = "Recurrence-free survival probability",
   ggtheme    = theme_minimal()
@@ -99,8 +93,8 @@ print(km_plot_rx)
 
 
 
+#--- Cox Prediction Model -------------------------------------------------
 
-#--- Cox Prediction Model ---
 cox <- coxph(
   Surv(time, status) ~ rx + sex + age +
     obstruct + perfor + adhere + nodes + extent + surg,
@@ -109,27 +103,31 @@ cox <- coxph(
 
 summary(cox)
 
+cox_tidy <- tidy(cox, exponentiate = TRUE, conf.int = TRUE)
+kable(cox_tidy, digits = 3,
+      caption = "Cox prediction model: hazard ratios (for reference)")
 
 
-#--- Model Diagnostics ---
+#--- Model Diagnostics ----------------------------------------------------
 
-# Proportional Hazards Assumption
+## 1) Proportional Hazards Assumption
+
 zph_full <- cox.zph(cox)
 print(zph_full)
 
+# Schoenfeld residual plots
+ggcoxzph(zph_full)
 
-# Schoenfeld residuals plots
-ggcoxzph(zph_full)  
 
+## 2) Martingale residuals
 
-## 6.2 Functional Form for Continuous Covariates (Martingale residuals)
+martingale_resid <- residuals(cox, type = "martingale")
 
-martingale_resid <- residuals(cox_full, type = "martingale")
-
-diagnostic_df <- colon_rf %>%
+diagnostic_df <- colon %>%
+  drop_na(time, status, rx, sex, age, obstruct, perfor, adhere, nodes, extent, surg) %>%
   mutate(martingale = martingale_resid)
 
-# Age vs Martingale residuals
+# Age vs martingale
 ggplot(diagnostic_df, aes(x = age, y = martingale)) +
   geom_point(alpha = 0.4) +
   geom_smooth(method = "loess", se = FALSE) +
@@ -140,7 +138,7 @@ ggplot(diagnostic_df, aes(x = age, y = martingale)) +
     y     = "Martingale residuals"
   )
 
-# Nodes vs Martingale residuals
+# Nodes vs martingale
 ggplot(diagnostic_df, aes(x = nodes, y = martingale)) +
   geom_point(alpha = 0.4) +
   geom_smooth(method = "loess", se = FALSE) +
@@ -151,7 +149,7 @@ ggplot(diagnostic_df, aes(x = nodes, y = martingale)) +
     y     = "Martingale residuals"
   )
 
-# Surgery duration vs Martingale residuals
+# Surgery duration vs martingale
 ggplot(diagnostic_df, aes(x = surg, y = martingale)) +
   geom_point(alpha = 0.4) +
   geom_smooth(method = "loess", se = FALSE) +
@@ -163,10 +161,10 @@ ggplot(diagnostic_df, aes(x = surg, y = martingale)) +
   )
 
 
-## 6.3 Influential Observations (Deviance residuals vs LP)
+## 3) Influential observations: Deviance residuals
 
-deviance_resid <- residuals(cox_full, type = "deviance")
-lp <- predict(cox_full, type = "lp")
+deviance_resid <- residuals(cox, type = "deviance")
+lp <- predict(cox, type = "lp")
 
 diagnostic_df <- diagnostic_df %>%
   mutate(
@@ -184,10 +182,10 @@ ggplot(diagnostic_df, aes(x = lp, y = deviance)) +
   )
 
 
-########## 7. Predicted Survival Curves by Treatment ##########
+#--- Predicted Survival Curves by Treatment -------------------------------
 
-# Create "typical patient" profile: mean/most common covariate values
-newdata_template <- colon_rf %>%
+# Build a "typical patient" profile using means / most common values
+newdata_template <- colon_model %>%
   summarise(
     sex      = names(sort(table(sex), decreasing = TRUE))[1],
     age      = mean(age, na.rm = TRUE),
@@ -199,74 +197,60 @@ newdata_template <- colon_rf %>%
     surg     = mean(surg, na.rm = TRUE)
   )
 
-# Create one row per treatment level
 newdata_pred <- newdata_template %>%
-  slice(rep(1, length(levels(colon_rf$rx)))) %>%
-  mutate(rx = levels(colon_rf$rx))
+  slice(rep(1, length(levels(colon_model$rx)))) %>%
+  mutate(rx = levels(colon_model$rx))
 
-# Fit predicted survival curves from Cox model
-fit_pred <- survfit(cox_full, newdata = newdata_pred)
+fit_pred <- survfit(cox, newdata = newdata_pred)
 
 pred_plot_rx <- ggsurvplot(
   fit_pred,
   data         = newdata_pred,
   legend.title = "Treatment",
-  legend.labs  = levels(colon_rf$rx),
+  legend.labs  = levels(colon_model$rx),
   xlab         = "Time since surgery (days)",
   ylab         = "Predicted recurrence-free survival",
   ggtheme      = theme_minimal()
 )
 
 print(pred_plot_rx)
-
-ggsave(
-  filename = "figure_predicted_survival_by_treatment.png",
-  plot     = pred_plot_rx$plot,
-  width    = 7, height = 5, dpi = 300
-)
+ggsave("figure_predicted_survival_by_treatment.png",
+       pred_plot_rx$plot, width = 7, height = 5, dpi = 300)
 
 
-########## 8. Internal Validation: K-fold CV ##########
-
-# 10-fold cross-validation for:
-#   - C-index (discrimination)
-#   - Calibration slope
+#--- Internal Validation: 10-fold Cross-Validation ------------------------
 
 K <- 10
-n <- nrow(colon_rf)
+n <- nrow(colon_model)
 
 set.seed(713)
 fold_id <- sample(rep(1:K, length.out = n))
-colon_rf$fold_id <- fold_id
+colon_model$fold_id <- fold_id
 
-# Vector to store cross-validated linear predictor
+# store cross-validated linear predictor
 lp_cv <- rep(NA_real_, n)
 
 for (k in 1:K) {
-  # Training and test split
-  train_data <- colon_rf %>% filter(fold_id != k)
-  test_data  <- colon_rf %>% filter(fold_id == k)
+  train_data <- colon_model %>% filter(fold_id != k)
+  test_data  <- colon_model %>% filter(fold_id == k)
   
-  # Fit Cox model in training data
   cox_k <- coxph(
-    Surv(surv_time, surv_event) ~ rx + sex + age +
+    Surv(time, status) ~ rx + sex + age +
       obstruct + perfor + adhere + nodes + extent + surg,
     data = train_data
   )
   
-  # Predict linear predictor (risk score) in test data
   lp_k <- predict(cox_k, newdata = test_data, type = "lp")
-  
-  # Store CV predictions
-  lp_cv[colon_rf$fold_id == k] <- lp_k
+  lp_cv[colon_model$fold_id == k] <- lp_k
 }
 
-colon_rf$lp_cv <- lp_cv
+colon_model$lp_cv <- lp_cv
 
-## 8.1 Cross-validated C-index
-
-cindex_cv <- rcorr.cens(x = colon_rf$lp_cv,
-                        S = Surv(colon_rf$surv_time, colon_rf$surv_event))
+## C-index (discrimination, out-of-sample)
+cindex_cv <- rcorr.cens(
+  x = colon_model$lp_cv,
+  S = Surv(colon_model$time, colon_model$status)
+)
 
 cindex_est <- as.numeric(cindex_cv["C Index"])
 
@@ -282,11 +266,10 @@ kable(
 )
 
 
-## 8.2 Calibration slope from CV risk score
-
+## Calibration slope
 cox_calib <- coxph(
-  Surv(surv_time, surv_event) ~ lp_cv,
-  data = colon_rf
+  Surv(time, status) ~ lp_cv,
+  data = colon_model
 )
 
 calib_tidy <- tidy(cox_calib, conf.int = TRUE, conf.level = 0.95) %>%
@@ -300,24 +283,21 @@ kable(
 )
 
 
-########## 9. Calibration Plot at Fixed Time (e.g., 3 years) ##########
+#--- Calibration Plot at Fixed Time (e.g., 3 years) ----------------------
 
-# Choose time point (e.g., ~3 years = 1095 days)
-t0 <- 1095
+t0 <- 1095  # ~3 years
 
-# Divide subjects into deciles of predicted risk (lp_cv)
-colon_rf <- colon_rf %>%
+colon_model <- colon_model %>%
   mutate(lp_decile = ntile(lp_cv, 10))
 
-# Helper: KM survival at t0 in a subset
 get_km_at_t0 <- function(data, t0) {
-  fit <- survfit(Surv(surv_time, surv_event) ~ 1, data = data)
+  fit <- survfit(Surv(time, status) ~ 1, data = data)
   s <- summary(fit, times = t0)$surv
   if (length(s) == 0) return(NA_real_)
   s
 }
 
-calib_df <- colon_rf %>%
+calib_df <- colon_model %>%
   group_by(lp_decile) %>%
   summarise(
     mean_lp = mean(lp_cv, na.rm = TRUE),
@@ -326,22 +306,17 @@ calib_df <- colon_rf %>%
   ) %>%
   arrange(lp_decile)
 
-# Calibration plot
 ggplot(calib_df, aes(x = mean_lp, y = surv_t0)) +
   geom_point() +
   geom_line() +
   theme_minimal() +
   labs(
     title = paste0("Calibration plot at t = ", t0, " days"),
-    x     = "Mean cross-validated linear predictor (higher = higher risk)",
+    x     = "Mean cross-validated linear predictor (higher = higher risk) ",
     y     = "Observed recurrence-free survival at t0"
   )
 
-ggsave(
-  filename = "figure_calibration_plot_t0.png",
-  width    = 7, height = 5, dpi = 300
-)
+ggsave("figure_calibration_plot_t0.png",
+       width = 7, height = 5, dpi = 300)
 
-###############################################
-# End of script
-###############################################
+#---------------------------- END OF SCRIPT ------------------------------
