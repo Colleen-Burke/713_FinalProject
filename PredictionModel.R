@@ -100,27 +100,15 @@ print(km_plot_rx)
 
 
 
-########## 5. Cox Prediction Model ##########
-
-# Full Cox model including treatment and potential predictors
-cox_full <- coxph(
-  Surv(surv_time, surv_event) ~ rx + sex + age +
+#--- Cox Prediction Model ---
+cox <- coxph(
+  Surv(time, status) ~ rx + sex + age +
     obstruct + perfor + adhere + nodes + extent + surg,
-  data = colon_rf
+  data = colon
 )
 
-# Summary (for your own reference)
-summary(cox_full)
+summary(cox)
 
-# Tidy hazard ratios (optional, you can refer to this but
-# main focus is prediction rather than inference)
-cox_full_tidy <- tidy(cox_full, exponentiate = TRUE, conf.int = TRUE)
-
-kable(
-  cox_full_tidy,
-  digits = 3,
-  caption = "Cox prediction model: hazard ratios (for reference)"
-)
 
 
 ########## 6. Model Diagnostics ##########
