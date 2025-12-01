@@ -1,30 +1,26 @@
 # Install packages 
 
 library(survival)   # survival objects, Cox model
-library(survminer)  # KM and Cox plots
-library(dplyr)      # data wrangling
-library(ggplot2)    # plotting
-library(Hmisc)      # C-index (rcorr.cens)
-library(tidyr)      # drop_na
-library(knitr)      # kable for tables
-library(broom)      # tidy model output
+library(survminer)  
+library(dplyr)      
+library(ggplot2)    
+library(Hmisc)      
+library(tidyr)      
+library(knitr)      
+library(broom)      
+library(here)
 
 
-########## 1. Load and Prepare Data ##########
-
-# Assumes colon.csv is in your working directory.
-# You can check with getwd() and setwd("path") if needed.
-colon <- read.csv("colon.csv")
-
+#--- Load and Prepare Data ---
+colon <- read.csv(here("colon.csv"))
 
 set.seed(713)       # reproducibility
 
 # Keep recurrence-free survival records: etype == 2
-# (If your CSV already only has etype==2, this will just keep all rows.)
 colon_rf <- colon %>%
   filter(etype == 2)
 
-# Replace nodes = 0 with 1 (per exam instructions)
+# Replace nodes = 0 with 1
 colon_rf <- colon_rf %>%
   mutate(
     nodes = ifelse(nodes == 0, 1, nodes)
@@ -38,16 +34,13 @@ colon_rf <- colon_rf %>%
 # status: 1 = recurrence, 0 = censored
 surv_obj <- Surv(time = colon_rf$time, event = colon_rf$status)
 
-# For convenience, keep explicit columns
+# Rename columns
 colon_rf <- colon_rf %>%
   mutate(
     surv_time  = time,
     surv_event = status
   )
 
-# Quick check
-# str(colon_rf)
-# summary(colon_rf)
 
 
 ########## 2. Variable Coding ##########
