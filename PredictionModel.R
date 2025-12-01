@@ -9,6 +9,7 @@ library(tidyr)      # drop_na
 library(knitr)      # kable
 library(broom)      # tidy outputs
 library(here)       # file paths
+library(tibble)
 
 set.seed(713)       # reproducibility
 
@@ -214,7 +215,7 @@ pred_plot_rx <- ggsurvplot(
   fit_pred,
   data         = newdata_pred,
   legend.title = "Treatment",
-  legend.labs  = levels(colon_model$rx),
+  legend.labs  = levels(colon$rx),
   xlab         = "Time since surgery (days)",
   ylab         = "Predicted recurrence-free survival",
   ggtheme      = theme_minimal()
