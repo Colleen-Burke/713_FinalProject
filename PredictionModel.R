@@ -1,5 +1,4 @@
-# Install / load packages ------------------------------------------------------
-
+# Load packages ------------------------------------------------------
 library(survival)   # survival objects, Cox model
 library(survminer)  # KM and Cox plots
 library(dplyr)      # data wrangling
@@ -11,10 +10,10 @@ library(broom)      # tidy outputs
 library(here)       # file paths
 library(tibble)
 
-set.seed(713)       # reproducibility
-
 
 #--- Load and Clean Data -----------------------------------------------------
+set.seed(713)       # reproducibility
+
 colon <- read.csv(here("colon.csv"))
 
 # Replace nodes = 0 with 1
@@ -47,7 +46,6 @@ colon <- colon %>%
                     labels = c("Adherent", "Not adherent")),
     extent = factor(extent)
   )
-
 
 
 #--- Descriptive Statistics ----------------------------------------------------
@@ -89,7 +87,6 @@ km_plot_rx <- ggsurvplot(
 )
 
 print(km_plot_rx)
-
 
 
 #--- Cox Prediction Model -------------------------------------------------
@@ -222,7 +219,6 @@ pred_plot_rx <- ggsurvplot(
 )
 
 print(pred_plot_rx)
-
 
 
 #--- Internal Validation -------------------------------------------------------
