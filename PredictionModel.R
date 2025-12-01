@@ -111,21 +111,15 @@ summary(cox)
 
 
 
-########## 6. Model Diagnostics ##########
+#--- Model Diagnostics ---
 
-## 6.1 Proportional Hazards Assumption
+# Proportional Hazards Assumption
+zph_full <- cox.zph(cox)
+print(zph_full)
 
-zph_full <- cox.zph(cox_full)
 
-# Print PH tests
-kable(
-  tidy(zph_full),
-  digits = 3,
-  caption = "Test of proportional hazards assumption"
-)
-
-# Plot Schoenfeld residuals for visual check
-ggcoxzph(zph_full)  # will open a multi-panel plot
+# Schoenfeld residuals plots
+ggcoxzph(zph_full)  
 
 
 ## 6.2 Functional Form for Continuous Covariates (Martingale residuals)
