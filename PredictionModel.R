@@ -16,37 +16,26 @@ colon <- read.csv(here("colon.csv"))
 
 set.seed(713)       # reproducibility
 
-# Keep recurrence-free survival records: etype == 2
-colon_rf <- colon %>%
-  filter(etype == 2)
-
 # Replace nodes = 0 with 1
-colon_rf <- colon_rf %>%
+colon %>%
   mutate(
     nodes = ifelse(nodes == 0, 1, nodes)
   )
 
 # Remove missing data
-colon_rf <- colon_rf %>%
+colon %>%
   drop_na()
 
 # Define survival object for recurrence-free survival
 # status: 1 = recurrence, 0 = censored
-surv_obj <- Surv(time = colon_rf$time, event = colon_rf$status)
-
-# Rename columns
-colon_rf <- colon_rf %>%
-  mutate(
-    surv_time  = time,
-    surv_event = status
-  )
+surv_obj <- Surv(time = colon$time, event = colon$status)
 
 
 
 #--- Variable Coding ---
 
 # Recode treatment (rx) and sex to factors
-colon_rf <- colon_rf %>%
+colon %>%
   mutate(
     rx = factor(rx,
                 levels = c(1, 2, 3),
@@ -71,7 +60,7 @@ colon_rf <- colon_rf %>%
 #--- Descriptive Statistics ---
 
 # Baseline characteristics by treatment group
-baseline_table <- colon_rf %>%
+baseline_table <- colon %>%
   group_by(rx) %>%
   summarise(
     n = n(),
@@ -90,15 +79,14 @@ print(baseline_table)
 
 
 
-########## 4. Kaplan–Meier Curves by Treatment ##########
+#--- Kaplan–Meier Curves by Treatment ---
 
-fit_km_rx <- survfit(Surv(surv_time, surv_event) ~ rx, data = colon_rf)
+fit_km_rx <- survfit(Surv(time, status) ~ rx, data = colon)
 
 km_plot_rx <- ggsurvplot(
   fit_km_rx,
   data       = colon_rf,
   risk.table = TRUE,
-  pval       = TRUE,
   conf.int   = TRUE,
   legend.title = "Treatment",
   legend.labs  = levels(colon_rf$rx),
@@ -107,15 +95,9 @@ km_plot_rx <- ggsurvplot(
   ggtheme    = theme_minimal()
 )
 
-# Display KM plot
 print(km_plot_rx)
 
-# Save figure (for report)
-ggsave(
-  filename = "figure_km_by_treatment.png",
-  plot     = km_plot_rx$plot,
-  width    = 7, height = 5, dpi = 300
-)
+
 
 
 ########## 5. Cox Prediction Model ##########
