@@ -43,9 +43,9 @@ colon_rf <- colon_rf %>%
 
 
 
-########## 2. Variable Coding ##########
+#--- Variable Coding ---
 
-# Recode treatment (rx) and sex to factors with readable labels
+# Recode treatment (rx) and sex to factors
 colon_rf <- colon_rf %>%
   mutate(
     rx = factor(rx,
@@ -65,9 +65,7 @@ colon_rf <- colon_rf %>%
                      labels = c("Adherent", "Not adherent"))
   )
 
-# extent and surg are left as in the original colon dataset:
-# extent: extent of spread (1–4)
-# surg: surgery duration (minutes)
+
 
 
 ########## 3. Descriptive Statistics ##########
