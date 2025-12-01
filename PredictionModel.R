@@ -1,4 +1,4 @@
-# Install / load packages -------------------------------------------------
+# Install / load packages ------------------------------------------------------
 
 library(survival)   # survival objects, Cox model
 library(survminer)  # KM and Cox plots
@@ -13,8 +13,7 @@ library(here)       # file paths
 set.seed(713)       # reproducibility
 
 
-#--- Load and Prepare Data -----------------------------------------------
-
+#--- Load and Prepare Data -----------------------------------------------------
 colon <- read.csv(here("colon.csv"))
 
 # Replace nodes = 0 with 1
@@ -28,7 +27,7 @@ colon <- colon %>%
 surv_obj <- Surv(time = colon$time, event = colon$status)
 
 
-#--- Variable Coding ------------------------------------------------------
+#--- Variable Coding -----------------------------------------------------------
 
 # Recode treatment (rx) and sex to factors
 colon <- colon %>%
@@ -41,17 +40,18 @@ colon <- colon %>%
     obstruct = factor(obstruct,
                       levels = c(0, 1),
                       labels = c("No obstruction", "Obstruction")),
-    perfor  = factor(perfor,
-                     levels = c(0, 1),
-                     labels = c("No perforation", "Perforation")),
-    adhere  = factor(adhere,
-                     levels = c(0, 1),
-                     labels = c("Adherent", "Not adherent"))
+    perfor = factor(perfor,
+                    levels = c(0, 1),
+                    labels = c("No perforation", "Perforation")),
+    adhere = factor(adhere,
+                    levels = c(0, 1),
+                    labels = c("Adherent", "Not adherent")),
+    extent = factor(extent)
   )
 
 
 
-#--- Descriptive Statistics ----------------------------------------------
+#--- Descriptive Statistics ----------------------------------------------------
 
 # Baseline characteristics by treatment group (on full colon, not colon_model)
 baseline_table <- colon %>%
@@ -72,7 +72,7 @@ baseline_table <- colon %>%
 print(baseline_table)
 
 
-#--- Kaplan–Meier Curves by Treatment ------------------------------------
+#--- Kaplan–Meier Curves by Treatment ------------------------------------------
 
 fit_km_rx <- survfit(Surv(time, status) ~ rx, data = colon)
 
@@ -108,7 +108,7 @@ kable(cox_tidy, digits = 3,
       caption = "Cox prediction model: hazard ratios (for reference)")
 
 
-#--- Model Diagnostics ----------------------------------------------------
+#--- Model Diagnostics ---------------------------------------------------------
 
 ## 1) Proportional Hazards Assumption
 
@@ -123,6 +123,7 @@ ggcoxzph(zph_full)
 
 martingale_resid <- residuals(cox, type = "martingale")
 
+# Create diagnostic dataframe by filtering colon to match the Cox model rows
 diagnostic_df <- colon %>%
   drop_na(time, status, rx, sex, age, obstruct, perfor, adhere, nodes, extent, surg) %>%
   mutate(martingale = martingale_resid)
@@ -161,7 +162,7 @@ ggplot(diagnostic_df, aes(x = surg, y = martingale)) +
   )
 
 
-## 3) Influential observations: Deviance residuals
+## 3) Influential observations
 
 deviance_resid <- residuals(cox, type = "deviance")
 lp <- predict(cox, type = "lp")
@@ -182,24 +183,32 @@ ggplot(diagnostic_df, aes(x = lp, y = deviance)) +
   )
 
 
-#--- Predicted Survival Curves by Treatment -------------------------------
+#--- Predicted Survival Curves by Treatment ------------------------------------
 
-# Build a "typical patient" profile using means / most common values
-newdata_template <- colon_model %>%
+# Build typical patient using means from the complete case data
+newdata_template <- diagnostic_df %>%
   summarise(
-    sex      = names(sort(table(sex), decreasing = TRUE))[1],
     age      = mean(age, na.rm = TRUE),
-    obstruct = names(sort(table(obstruct), decreasing = TRUE))[1],
-    perfor   = names(sort(table(perfor), decreasing = TRUE))[1],
-    adhere   = names(sort(table(adhere), decreasing = TRUE))[1],
     nodes    = median(nodes, na.rm = TRUE),
-    extent   = names(sort(table(extent), decreasing = TRUE))[1],
     surg     = mean(surg, na.rm = TRUE)
+  ) %>%
+  mutate(
+    sex      = levels(diagnostic_df$sex)[1],
+    obstruct = levels(diagnostic_df$obstruct)[1],
+    perfor   = levels(diagnostic_df$perfor)[1],
+    adhere   = levels(diagnostic_df$adhere)[1],
+    extent   = levels(diagnostic_df$extent)[1]
   )
 
+# Create one row for each treatment level
 newdata_pred <- newdata_template %>%
-  slice(rep(1, length(levels(colon_model$rx)))) %>%
-  mutate(rx = levels(colon_model$rx))
+  slice(rep(1, 3)) %>%
+  mutate(rx = levels(colon$rx))
+
+# Check for NAs before fitting
+print("Checking newdata_pred:")
+print(newdata_pred)
+print(sapply(newdata_pred, class))
 
 fit_pred <- survfit(cox, newdata = newdata_pred)
 
@@ -214,11 +223,14 @@ pred_plot_rx <- ggsurvplot(
 )
 
 print(pred_plot_rx)
-ggsave("figure_predicted_survival_by_treatment.png",
-       pred_plot_rx$plot, width = 7, height = 5, dpi = 300)
 
 
-#--- Internal Validation: 10-fold Cross-Validation ------------------------
+
+#--- Internal Validation -------------------------------------------------------
+
+# Create colon_model as the complete case dataset
+colon_model <- colon %>%
+  drop_na(time, status, rx, sex, age, obstruct, perfor, adhere, nodes, extent, surg)
 
 K <- 10
 n <- nrow(colon_model)
@@ -283,7 +295,7 @@ kable(
 )
 
 
-#--- Calibration Plot at Fixed Time (e.g., 3 years) ----------------------
+#--- Calibration Plot ----------------------------------------------------------
 
 t0 <- 1095  # ~3 years
 
@@ -316,7 +328,4 @@ ggplot(calib_df, aes(x = mean_lp, y = surv_t0)) +
     y     = "Observed recurrence-free survival at t0"
   )
 
-ggsave("figure_calibration_plot_t0.png",
-       width = 7, height = 5, dpi = 300)
 
-#---------------------------- END OF SCRIPT ------------------------------
