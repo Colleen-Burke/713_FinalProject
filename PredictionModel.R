@@ -13,7 +13,7 @@ library(here)       # file paths
 set.seed(713)       # reproducibility
 
 
-#--- Load and Prepare Data -----------------------------------------------------
+#--- Load and Clean Data -----------------------------------------------------
 colon <- read.csv(here("colon.csv"))
 
 # Replace nodes = 0 with 1
@@ -26,8 +26,6 @@ colon <- colon %>%
 # Define survival object for recurrence-free survival
 surv_obj <- Surv(time = colon$time, event = colon$status)
 
-
-#--- Variable Coding -----------------------------------------------------------
 
 # Recode treatment (rx) and sex to factors
 colon <- colon %>%
