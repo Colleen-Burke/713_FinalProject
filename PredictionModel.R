@@ -14,7 +14,7 @@ library(tibble)
 #--- Load and Clean Data -----------------------------------------------------
 set.seed(713)       # reproducibility
 
-colon <- read.csv(here("colon.csv"))
+colon <- survival::colon
 
 # Replace nodes = 0 with 1
 colon <- colon %>%
@@ -47,6 +47,7 @@ colon <- colon %>%
     extent = factor(extent)
   )
 
+colon <- colon |> drop_na()
 
 #--- Descriptive Statistics ----------------------------------------------------
 
