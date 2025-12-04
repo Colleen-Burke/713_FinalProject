@@ -1,13 +1,11 @@
-# Load packages ------------------------------------------------------
-library(survival)   # survival objects, Cox model
-library(survminer)  # KM and Cox plots
-library(dplyr)      # data wrangling
-library(ggplot2)    # plotting
-library(Hmisc)      # C-index (rcorr.cens)
-library(tidyr)      # drop_na
-library(knitr)      # kable
-library(broom)      # tidy outputs
-library(here)       # file paths
+library(survival)   
+library(survminer)  
+library(dplyr)      
+library(ggplot2)    
+library(Hmisc)      
+library(tidyr)      
+library(knitr)      
+library(broom)      
 library(tibble)
 
 
@@ -256,7 +254,7 @@ colon_model$lp_cv <- lp_cv
 
 ## C-index (discrimination, out-of-sample)
 cindex_cv <- rcorr.cens(
-  x = -colon_model$lp_cv,  # ← Add negative sign!
+  x = -colon_model$lp_cv,  
   S = Surv(colon_model$time, colon_model$status)
 )
 
