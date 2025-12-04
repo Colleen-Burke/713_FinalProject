@@ -256,7 +256,7 @@ colon_model$lp_cv <- lp_cv
 
 ## C-index (discrimination, out-of-sample)
 cindex_cv <- rcorr.cens(
-  x = colon_model$lp_cv,
+  x = -colon_model$lp_cv,  # ← Add negative sign!
   S = Surv(colon_model$time, colon_model$status)
 )
 
