@@ -10,7 +10,7 @@ library(tibble)
 
 
 #--- Load and Clean Data -----------------------------------------------------
-set.seed(713)       # reproducibility
+set.seed(713)       
 
 colon <- survival::colon
 
